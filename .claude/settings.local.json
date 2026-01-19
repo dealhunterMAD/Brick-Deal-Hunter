@@ -22,7 +22,12 @@
       "Bash(cmd.exe /c \"pushd C:\\\\Users\\\\jakew\\\\Desktop\\\\Brick-Deal-Hunter && del nul && popd\")",
       "Bash(powershell.exe -Command \"Remove-Item -LiteralPath ''\\\\?\\\\C:\\\\Users\\\\jakew\\\\Desktop\\\\Brick-Deal-Hunter\\\\nul'' -Force\")",
       "Bash(powershell.exe -Command \"Remove-Item -Path ''C:\\\\Users\\\\jakew\\\\Desktop\\\\Brick-Deal-Hunter\\\\nul'' -Force -ErrorAction SilentlyContinue; Get-ChildItem -Path ''C:\\\\Users\\\\jakew\\\\Desktop\\\\Brick-Deal-Hunter'' -Name ''nul'' -ErrorAction SilentlyContinue\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd landing page for affiliate program applications\n\n- Create docs/index.html with professional landing page\n- Features app overview, supported retailers, and key features\n- Add nul to gitignore \\(Windows reserved filename\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nUpdate landing page to use app icon\n\n- Copy icon.png to docs folder\n- Replace emoji logo with actual app icon image\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove hardcoded Firebase API key - security fix\n\n- Move Firebase config to environment variables\n- Add .env.example as template for local setup\n- API key was exposed in public repo\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

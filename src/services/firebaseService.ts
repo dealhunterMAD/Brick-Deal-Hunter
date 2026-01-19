@@ -30,14 +30,16 @@ import { Deal, PricePoint, LegoSet, RetailerId } from '../types';
 
 /**
  * Firebase configuration
+ * Values loaded from environment variables for security
+ * Create a .env file with EXPO_PUBLIC_FIREBASE_* variables
  */
 const firebaseConfig = {
-  apiKey: "AIzaSyBUAS9Hf6d_9xUIqDlbT_A1FhW8cPS7LQE",
-  authDomain: "brick-deal-hunter.firebaseapp.com",
-  projectId: "brick-deal-hunter",
-  storageBucket: "brick-deal-hunter.firebasestorage.app",
-  messagingSenderId: "247281783147",
-  appId: "1:247281783147:web:381482bb20220fa6cf7c2e"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '',
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'brick-deal-hunter.firebaseapp.com',
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'brick-deal-hunter',
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'brick-deal-hunter.firebasestorage.app',
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || ''
 };
 
 // Singleton instances
