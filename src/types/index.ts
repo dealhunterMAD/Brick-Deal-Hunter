@@ -172,18 +172,11 @@ export interface NotificationSettings {
 
 /**
  * App settings stored locally
+ * NOTE: API keys are NOT stored here - they use SecureStore for encryption
  */
 export interface AppSettings {
   /** User's notification preferences */
   notifications: NotificationSettings;
-  /** API keys (encrypted) */
-  apiKeys: {
-    rebrickable: string | null;
-    brickLinkConsumerKey: string | null;
-    brickLinkConsumerSecret: string | null;
-    brickLinkTokenValue: string | null;
-    brickLinkTokenSecret: string | null;
-  };
   /** Has user completed onboarding */
   hasCompletedOnboarding: boolean;
   /** Preferred sort option */

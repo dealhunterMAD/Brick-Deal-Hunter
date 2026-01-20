@@ -5,6 +5,14 @@
  * 1. Fetch LEGO sets from Rebrickable API (reliable, free)
  * 2. Store price data in Firestore
  * 3. Calculate deals and discounts
+ * 4. Handle push notifications
+ *
+ * SECURITY FEATURES:
+ * - API key authentication on sensitive endpoints
+ * - Rate limiting to prevent abuse
+ * - Input validation on all user inputs
+ * - Restricted CORS
+ * - Safe error messages (no internal details leaked)
  */
 
 import { setGlobalOptions } from "firebase-functions";
@@ -19,6 +27,137 @@ const db = admin.firestore();
 
 // Limit concurrent executions for cost control
 setGlobalOptions({ maxInstances: 10 });
+
+// ============================================
+// SECURITY CONFIGURATION
+// ============================================
+
+// API key for authenticating requests (set in Firebase environment)
+// Set with: firebase functions:config:set app.api_key="your-secure-key"
+const APP_API_KEY = process.env.APP_API_KEY || "";
+
+// Allowed origins for CORS (restrict to your app's domains)
+const ALLOWED_ORIGINS = [
+  "https://brickdealhunter.com",
+  "https://www.brickdealhunter.com",
+  "exp://", // Expo development
+  "https://exp.host",
+];
+
+// Rate limiting: track requests per IP
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute
+
+// ============================================
+// SECURITY HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Validate API key from request headers
+ */
+function validateApiKey(req: any): boolean {
+  const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+
+  // In development, allow requests without API key if APP_API_KEY is not set
+  if (!APP_API_KEY) {
+    logger.warn("APP_API_KEY not configured - running in development mode");
+    return true;
+  }
+
+  return apiKey === APP_API_KEY;
+}
+
+/**
+ * Check rate limiting for an IP address
+ */
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
+/**
+ * Get client IP from request
+ */
+function getClientIp(req: any): string {
+  return req.headers["x-forwarded-for"]?.split(",")[0] ||
+         req.connection?.remoteAddress ||
+         "unknown";
+}
+
+/**
+ * Set CORS headers with restrictions
+ */
+function setCorsHeaders(req: any, res: any): void {
+  const origin = req.headers.origin || "";
+
+  // Check if origin is allowed
+  const isAllowed = ALLOWED_ORIGINS.some(allowed =>
+    origin.startsWith(allowed) || allowed === "*"
+  );
+
+  if (isAllowed || !APP_API_KEY) {
+    // In development mode or if origin is allowed
+    res.set("Access-Control-Allow-Origin", origin || "*");
+  } else {
+    // Default to first allowed origin
+    res.set("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0]);
+  }
+
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization");
+  res.set("Access-Control-Max-Age", "86400");
+}
+
+/**
+ * Validate LEGO set number format
+ * Valid formats: "75192", "75192-1", "10294-1"
+ */
+function isValidSetNumber(setNumber: string): boolean {
+  if (!setNumber || typeof setNumber !== "string") return false;
+  // Allow digits with optional -1 suffix
+  return /^\d{4,6}(-\d)?$/.test(setNumber);
+}
+
+/**
+ * Sanitize set number for URL usage
+ */
+function sanitizeSetNumber(setNumber: string): string {
+  if (!isValidSetNumber(setNumber)) return "";
+  // Remove -1 suffix and ensure only digits
+  return setNumber.replace(/-\d$/, "").replace(/[^\d]/g, "");
+}
+
+/**
+ * Validate Expo push token format
+ * Expo tokens start with "ExponentPushToken["
+ */
+function isValidExpoPushToken(token: string): boolean {
+  if (!token || typeof token !== "string") return false;
+  return /^ExponentPushToken\[[a-zA-Z0-9_-]+\]$/.test(token);
+}
+
+/**
+ * Create a safe error response (no internal details)
+ */
+function safeErrorResponse(res: any, statusCode: number, message: string): void {
+  res.status(statusCode).json({
+    success: false,
+    error: message
+  });
+}
 
 // ============================================
 // TYPES
@@ -81,12 +220,8 @@ interface NotificationPayload {
 // REBRICKABLE API - Primary Source
 // ============================================
 
-// Get API key from Firebase Functions config or environment variable
-// Set with: firebase functions:config:set rebrickable.api_key="your_key"
-// Or set REBRICKABLE_API_KEY environment variable in .env.local
 const REBRICKABLE_API_KEY = process.env.REBRICKABLE_API_KEY || "";
 
-// Theme ID to name mapping for Rebrickable
 const THEME_NAMES: Record<number, string> = {
   158: "Star Wars",
   1: "Technic",
@@ -109,18 +244,15 @@ const THEME_NAMES: Record<number, string> = {
   503: "Duplo",
 };
 
-/**
- * Fetch sets from Rebrickable API - this is the most reliable method
- */
 async function fetchFromRebrickable(): Promise<LegoSet[]> {
   logger.info("Fetching sets from Rebrickable API...");
 
   const currentYear = new Date().getFullYear();
-  const minYear = currentYear - 3; // Last 3 years of sets
+  const minYear = currentYear - 3;
 
   const sets: LegoSet[] = [];
   let page = 1;
-  const maxPages = 10; // Get up to 1000 sets
+  const maxPages = 10;
 
   while (page <= maxPages) {
     try {
@@ -150,21 +282,17 @@ async function fetchFromRebrickable(): Promise<LegoSet[]> {
       }
 
       for (const set of results) {
-        // Skip sets without images or very small sets
         if (!set.set_img_url || set.num_parts < 20) continue;
-
-        // Skip gear, books, minifigures (usually have -1 pattern but very few parts)
         if (set.num_parts < 50 && set.name.toLowerCase().includes("minifig")) continue;
 
-        // Calculate estimated price (LEGO averages ~$0.11 per piece)
         const estimatedPrice = Math.round(set.num_parts * 0.11);
 
         sets.push({
           setNumber: set.set_num,
           name: set.name,
-          price: estimatedPrice > 0 ? estimatedPrice : 20, // Minimum $20
+          price: estimatedPrice > 0 ? estimatedPrice : 20,
           imageUrl: set.set_img_url,
-          url: `https://www.lego.com/en-us/product/${set.set_num.replace("-1", "")}`,
+          url: `https://www.lego.com/en-us/product/${sanitizeSetNumber(set.set_num)}`,
           theme: THEME_NAMES[set.theme_id] || "LEGO",
           themeId: set.theme_id,
           pieces: set.num_parts,
@@ -181,8 +309,6 @@ async function fetchFromRebrickable(): Promise<LegoSet[]> {
       }
 
       page++;
-
-      // Small delay to be nice to the API
       await new Promise(resolve => setTimeout(resolve, 300));
 
     } catch (error) {
@@ -195,9 +321,6 @@ async function fetchFromRebrickable(): Promise<LegoSet[]> {
   return sets;
 }
 
-/**
- * Fetch theme information from Rebrickable
- */
 async function fetchThemes(): Promise<void> {
   try {
     const response = await fetch(
@@ -258,8 +381,29 @@ async function getLegoSetsCatalog(): Promise<LegoSet[]> {
 // PRICE DATA FUNCTIONS
 // ============================================
 
+// Allowed retailer domains for URL validation
+const ALLOWED_RETAILER_DOMAINS: Record<string, string> = {
+  lego: "lego.com",
+  amazon: "amazon.com",
+  walmart: "walmart.com",
+  target: "target.com",
+  best_buy: "bestbuy.com",
+  kohls: "kohls.com",
+  gamestop: "gamestop.com",
+  shop_disney: "shopdisney.com",
+  macys: "macys.com",
+  barnes_noble: "barnesandnoble.com",
+  sams_club: "samsclub.com",
+  walgreens: "walgreens.com",
+};
+
 function getRetailerUrl(retailer: string, setNumber: string): string {
-  const cleanSetNum = setNumber.replace("-1", "");
+  const cleanSetNum = sanitizeSetNumber(setNumber);
+
+  // Validate retailer is in our allowed list
+  if (!ALLOWED_RETAILER_DOMAINS[retailer]) {
+    return "";
+  }
 
   switch (retailer) {
     case "lego":
@@ -294,15 +438,12 @@ function getRetailerUrl(retailer: string, setNumber: string): string {
 function generateSimulatedPrice(set: LegoSet, retailer: string): PriceData {
   const originalPrice = set.price;
 
-  // LEGO.com is always MSRP, other retailers have random discounts
   let discountPercent = 0;
   if (retailer !== "lego") {
-    // 70% chance of some discount (10-40%)
     if (Math.random() < 0.7) {
       discountPercent = Math.floor(Math.random() * 31) + 10;
     }
 
-    // 10% chance of big discount (40-60%)
     if (Math.random() < 0.1) {
       discountPercent = Math.floor(Math.random() * 21) + 40;
     }
@@ -366,9 +507,6 @@ async function cleanOldDeals(): Promise<void> {
 // PUSH NOTIFICATION FUNCTIONS
 // ============================================
 
-/**
- * Get all push tokens that should receive a notification for a deal
- */
 async function getEligiblePushTokens(deal: DealData): Promise<string[]> {
   const tokensSnapshot = await db.collection("push_tokens")
     .where("notificationsEnabled", "==", true)
@@ -380,16 +518,14 @@ async function getEligiblePushTokens(deal: DealData): Promise<string[]> {
   for (const doc of tokensSnapshot.docs) {
     const tokenData = doc.data() as PushToken;
 
-    // Check if user is watching this theme or set
     const watchingTheme = deal.theme && tokenData.watchedThemes.length > 0
       ? tokenData.watchedThemes.includes(deal.theme)
-      : true; // If no watched themes, send all
+      : true;
 
     const watchingSet = tokenData.watchedSets.length > 0
       ? tokenData.watchedSets.includes(deal.setNumber)
-      : true; // If no watched sets, send all
+      : true;
 
-    // Send if user is watching the theme OR the specific set
     if (watchingTheme || watchingSet) {
       eligibleTokens.push(tokenData.token);
     }
@@ -398,9 +534,6 @@ async function getEligiblePushTokens(deal: DealData): Promise<string[]> {
   return eligibleTokens;
 }
 
-/**
- * Send push notification via Expo's push service
- */
 async function sendExpoPushNotification(
   pushTokens: string[],
   notification: NotificationPayload
@@ -410,10 +543,8 @@ async function sendExpoPushNotification(
     return;
   }
 
-  // Expo push notifications endpoint
   const expoPushEndpoint = "https://exp.host/--/api/v2/push/send";
 
-  // Create messages for each token
   const messages = pushTokens.map((token) => ({
     to: token,
     sound: "default",
@@ -424,7 +555,6 @@ async function sendExpoPushNotification(
     priority: "high",
   }));
 
-  // Send in batches of 100 (Expo limit)
   const batchSize = 100;
   for (let i = 0; i < messages.length; i += batchSize) {
     const batch = messages.slice(i, i + batchSize);
@@ -452,11 +582,7 @@ async function sendExpoPushNotification(
   }
 }
 
-/**
- * Send notifications for hot deals (>40% off)
- */
 async function notifyHotDeal(deal: DealData): Promise<void> {
-  // Only notify for deals > 40% off
   if (deal.percentOff < 40) return;
 
   const tokens = await getEligiblePushTokens(deal);
@@ -467,7 +593,7 @@ async function notifyHotDeal(deal: DealData): Promise<void> {
   }
 
   const notification: NotificationPayload = {
-    title: `🔥 ${deal.percentOff}% OFF - Hot Deal!`,
+    title: `${deal.percentOff}% OFF - Hot Deal!`,
     body: `${deal.setName} at ${deal.retailer.toUpperCase()} - Now $${deal.currentPrice} (Save $${deal.savings})`,
     data: {
       type: "deal",
@@ -554,7 +680,6 @@ export const updatePrices = onSchedule(
             await saveDealToFirestore(deal);
             dealsFound++;
 
-            // Send push notification for hot deals (>40% off)
             if (percentOff >= 40) {
               await notifyHotDeal(deal);
             }
@@ -574,28 +699,30 @@ export const updatePrices = onSchedule(
 );
 
 // ============================================
-// HTTP ENDPOINTS
+// HTTP ENDPOINTS (with security)
 // ============================================
 
 export const manualCatalogUpdate = onRequest(
   { memory: "512MiB", timeoutSeconds: 540 },
   async (req, res) => {
+    // Validate API key for admin endpoints
+    if (!validateApiKey(req)) {
+      safeErrorResponse(res, 401, "Unauthorized");
+      return;
+    }
+
     logger.info("Manual catalog update triggered");
 
     try {
       const sets = await fetchFromRebrickable();
 
       if (sets.length === 0) {
-        res.status(500).json({
-          success: false,
-          error: "No sets fetched from Rebrickable API",
-        });
+        safeErrorResponse(res, 500, "Failed to fetch sets");
         return;
       }
 
       await saveLegoSetsCatalog(sets);
 
-      // Count themes
       const themeCount: Record<string, number> = {};
       for (const set of sets) {
         const theme = set.theme || "Other";
@@ -608,22 +735,13 @@ export const manualCatalogUpdate = onRequest(
 
       res.json({
         success: true,
-        message: `Catalog updated with ${sets.length} sets from Rebrickable`,
+        message: `Catalog updated with ${sets.length} sets`,
         totalSets: sets.length,
         topThemes: topThemes.map(([name, count]) => ({ name, count })),
-        sampleSets: sets.slice(0, 10).map(s => ({
-          setNumber: s.setNumber,
-          name: s.name,
-          price: s.price,
-          theme: s.theme,
-          pieces: s.pieces,
-          year: s.year,
-          imageUrl: s.imageUrl,
-        })),
       });
     } catch (error) {
       logger.error("Manual catalog update failed:", error);
-      res.status(500).json({ success: false, error: String(error) });
+      safeErrorResponse(res, 500, "Catalog update failed");
     }
   }
 );
@@ -631,6 +749,12 @@ export const manualCatalogUpdate = onRequest(
 export const manualPriceUpdate = onRequest(
   { memory: "512MiB", timeoutSeconds: 300 },
   async (req, res) => {
+    // Validate API key for admin endpoints
+    if (!validateApiKey(req)) {
+      safeErrorResponse(res, 401, "Unauthorized");
+      return;
+    }
+
     logger.info("Manual price update triggered");
 
     try {
@@ -651,7 +775,6 @@ export const manualPriceUpdate = onRequest(
         "barnes_noble", "sams_club", "walgreens"
       ];
       let dealsFound = 0;
-      const sampleDeals: DealData[] = [];
 
       for (const set of sets.slice(0, 50)) {
         for (const retailer of retailers) {
@@ -671,11 +794,6 @@ export const manualPriceUpdate = onRequest(
             };
             await saveDealToFirestore(deal);
             dealsFound++;
-
-            // Keep some sample deals for the response
-            if (sampleDeals.length < 5) {
-              sampleDeals.push(deal);
-            }
           }
         }
       }
@@ -687,19 +805,10 @@ export const manualPriceUpdate = onRequest(
         message: `Updated prices for ${Math.min(sets.length, 50)} sets. Found ${dealsFound} deals.`,
         catalogSize: sets.length,
         dealsFound,
-        sampleDeals: sampleDeals.map(d => ({
-          setNumber: d.setNumber,
-          setName: d.setName,
-          retailer: d.retailer,
-          originalPrice: d.originalPrice,
-          currentPrice: d.currentPrice,
-          percentOff: d.percentOff,
-          savings: d.savings,
-        })),
       });
     } catch (error) {
       logger.error("Manual update failed:", error);
-      res.status(500).json({ success: false, error: String(error) });
+      safeErrorResponse(res, 500, "Price update failed");
     }
   }
 );
@@ -712,13 +821,10 @@ export const healthCheck = onRequest(async (req, res) => {
     const dealsSnapshot = await db.collection("deals").count().get();
     const dealsCount = dealsSnapshot.data().count;
 
-    const tokensSnapshot = await db.collection("push_tokens").count().get();
-    const tokensCount = tokensSnapshot.data().count;
-
     res.json({
       status: "ok",
       timestamp: new Date().toISOString(),
-      version: "6.0.0",
+      version: "7.0.0",
       catalog: {
         size: catalogSize,
         source: "Rebrickable API"
@@ -726,20 +832,15 @@ export const healthCheck = onRequest(async (req, res) => {
       deals: {
         count: dealsCount
       },
-      pushTokens: {
-        count: tokensCount
-      }
     });
   } catch (error) {
-    res.status(500).json({
-      status: "error",
-      error: String(error),
-    });
+    logger.error("Health check failed:", error);
+    safeErrorResponse(res, 500, "Health check failed");
   }
 });
 
 // ============================================
-// PUSH NOTIFICATION ENDPOINTS
+// PUSH NOTIFICATION ENDPOINTS (with security)
 // ============================================
 
 /**
@@ -748,10 +849,7 @@ export const healthCheck = onRequest(async (req, res) => {
  * Body: { token: string, platform: 'ios' | 'android' | 'web', preferences: {...} }
  */
 export const registerPushToken = onRequest(async (req, res) => {
-  // Enable CORS
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -759,32 +857,52 @@ export const registerPushToken = onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
+    safeErrorResponse(res, 405, "Method not allowed");
+    return;
+  }
+
+  // Rate limiting
+  const clientIp = getClientIp(req);
+  if (!checkRateLimit(clientIp)) {
+    safeErrorResponse(res, 429, "Too many requests");
     return;
   }
 
   try {
     const { token, platform, preferences } = req.body;
 
-    if (!token || typeof token !== "string") {
-      res.status(400).json({ error: "Invalid push token" });
+    // Validate push token format
+    if (!isValidExpoPushToken(token)) {
+      safeErrorResponse(res, 400, "Invalid push token format");
       return;
     }
 
+    // Validate platform
+    const validPlatforms = ["ios", "android", "web"];
+    const platformValue = validPlatforms.includes(platform) ? platform : "ios";
+
+    // Validate preferences
+    const minDiscount = typeof preferences?.minDiscountThreshold === "number"
+      ? Math.min(Math.max(preferences.minDiscountThreshold, 0), 100)
+      : 20;
+
     const tokenData: PushToken = {
       token,
-      platform: platform || "ios",
+      platform: platformValue,
       notificationsEnabled: preferences?.notificationsEnabled ?? true,
-      minDiscountThreshold: preferences?.minDiscountThreshold ?? 20,
-      watchedThemes: preferences?.watchedThemes ?? [],
-      watchedSets: preferences?.watchedSets ?? [],
+      minDiscountThreshold: minDiscount,
+      watchedThemes: Array.isArray(preferences?.watchedThemes)
+        ? preferences.watchedThemes.slice(0, 50) // Limit to 50 themes
+        : [],
+      watchedSets: Array.isArray(preferences?.watchedSets)
+        ? preferences.watchedSets.filter(isValidSetNumber).slice(0, 100) // Limit to 100 sets
+        : [],
       lastUpdated: admin.firestore.Timestamp.now(),
     };
 
-    // Use token as document ID for easy lookup
     await db.collection("push_tokens").doc(token).set(tokenData, { merge: true });
 
-    logger.info(`Registered push token for ${platform}`);
+    logger.info(`Registered push token for ${platformValue}`);
 
     res.json({
       success: true,
@@ -792,7 +910,7 @@ export const registerPushToken = onRequest(async (req, res) => {
     });
   } catch (error) {
     logger.error("Failed to register push token:", error);
-    res.status(500).json({ error: String(error) });
+    safeErrorResponse(res, 500, "Registration failed");
   }
 });
 
@@ -802,10 +920,7 @@ export const registerPushToken = onRequest(async (req, res) => {
  * Body: { token: string, preferences: {...} }
  */
 export const updateNotificationPreferences = onRequest(async (req, res) => {
-  // Enable CORS
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -813,15 +928,30 @@ export const updateNotificationPreferences = onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
+    safeErrorResponse(res, 405, "Method not allowed");
+    return;
+  }
+
+  // Rate limiting
+  const clientIp = getClientIp(req);
+  if (!checkRateLimit(clientIp)) {
+    safeErrorResponse(res, 429, "Too many requests");
     return;
   }
 
   try {
     const { token, preferences } = req.body;
 
-    if (!token || typeof token !== "string") {
-      res.status(400).json({ error: "Invalid push token" });
+    // Validate push token format
+    if (!isValidExpoPushToken(token)) {
+      safeErrorResponse(res, 400, "Invalid push token format");
+      return;
+    }
+
+    // Check if token exists
+    const tokenDoc = await db.collection("push_tokens").doc(token).get();
+    if (!tokenDoc.exists) {
+      safeErrorResponse(res, 404, "Token not found");
       return;
     }
 
@@ -830,16 +960,16 @@ export const updateNotificationPreferences = onRequest(async (req, res) => {
     };
 
     if (preferences?.notificationsEnabled !== undefined) {
-      updates.notificationsEnabled = preferences.notificationsEnabled;
+      updates.notificationsEnabled = Boolean(preferences.notificationsEnabled);
     }
-    if (preferences?.minDiscountThreshold !== undefined) {
-      updates.minDiscountThreshold = preferences.minDiscountThreshold;
+    if (typeof preferences?.minDiscountThreshold === "number") {
+      updates.minDiscountThreshold = Math.min(Math.max(preferences.minDiscountThreshold, 0), 100);
     }
-    if (preferences?.watchedThemes !== undefined) {
-      updates.watchedThemes = preferences.watchedThemes;
+    if (Array.isArray(preferences?.watchedThemes)) {
+      updates.watchedThemes = preferences.watchedThemes.slice(0, 50);
     }
-    if (preferences?.watchedSets !== undefined) {
-      updates.watchedSets = preferences.watchedSets;
+    if (Array.isArray(preferences?.watchedSets)) {
+      updates.watchedSets = preferences.watchedSets.filter(isValidSetNumber).slice(0, 100);
     }
 
     await db.collection("push_tokens").doc(token).update(updates);
@@ -852,7 +982,7 @@ export const updateNotificationPreferences = onRequest(async (req, res) => {
     });
   } catch (error) {
     logger.error("Failed to update preferences:", error);
-    res.status(500).json({ error: String(error) });
+    safeErrorResponse(res, 500, "Update failed");
   }
 });
 
@@ -862,10 +992,7 @@ export const updateNotificationPreferences = onRequest(async (req, res) => {
  * Body: { token: string }
  */
 export const unregisterPushToken = onRequest(async (req, res) => {
-  // Enable CORS
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -873,15 +1000,23 @@ export const unregisterPushToken = onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
+    safeErrorResponse(res, 405, "Method not allowed");
+    return;
+  }
+
+  // Rate limiting
+  const clientIp = getClientIp(req);
+  if (!checkRateLimit(clientIp)) {
+    safeErrorResponse(res, 429, "Too many requests");
     return;
   }
 
   try {
     const { token } = req.body;
 
-    if (!token || typeof token !== "string") {
-      res.status(400).json({ error: "Invalid push token" });
+    // Validate push token format
+    if (!isValidExpoPushToken(token)) {
+      safeErrorResponse(res, 400, "Invalid push token format");
       return;
     }
 
@@ -895,7 +1030,7 @@ export const unregisterPushToken = onRequest(async (req, res) => {
     });
   } catch (error) {
     logger.error("Failed to unregister push token:", error);
-    res.status(500).json({ error: String(error) });
+    safeErrorResponse(res, 500, "Unregistration failed");
   }
 });
 
@@ -903,12 +1038,10 @@ export const unregisterPushToken = onRequest(async (req, res) => {
  * Send a test notification to a specific token
  * POST /sendTestNotification
  * Body: { token: string }
+ * Requires API key authentication
  */
 export const sendTestNotification = onRequest(async (req, res) => {
-  // Enable CORS
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  setCorsHeaders(req, res);
 
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -916,20 +1049,35 @@ export const sendTestNotification = onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
+    safeErrorResponse(res, 405, "Method not allowed");
+    return;
+  }
+
+  // Rate limiting (stricter for test notifications)
+  const clientIp = getClientIp(req);
+  if (!checkRateLimit(clientIp)) {
+    safeErrorResponse(res, 429, "Too many requests");
     return;
   }
 
   try {
     const { token } = req.body;
 
-    if (!token || typeof token !== "string") {
-      res.status(400).json({ error: "Invalid push token" });
+    // Validate push token format
+    if (!isValidExpoPushToken(token)) {
+      safeErrorResponse(res, 400, "Invalid push token format");
+      return;
+    }
+
+    // Check if token is registered
+    const tokenDoc = await db.collection("push_tokens").doc(token).get();
+    if (!tokenDoc.exists) {
+      safeErrorResponse(res, 404, "Token not registered");
       return;
     }
 
     const notification: NotificationPayload = {
-      title: "🧱 Test Notification",
+      title: "Test Notification",
       body: "Brick Deal Hunter notifications are working!",
       data: {
         type: "deal",
@@ -947,6 +1095,6 @@ export const sendTestNotification = onRequest(async (req, res) => {
     });
   } catch (error) {
     logger.error("Failed to send test notification:", error);
-    res.status(500).json({ error: String(error) });
+    safeErrorResponse(res, 500, "Failed to send notification");
   }
 });

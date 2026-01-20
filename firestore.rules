@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // FIRESTORE SECURITY RULES
+    // ============================================
+    // These rules protect your database from unauthorized access.
+    // By default, all access is denied unless explicitly allowed.
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if the request has a valid API key
+    // This is used for server-to-server communication
+    function hasValidApiKey() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // ============================================
+    // PUBLIC COLLECTIONS (Read-only for all users)
+    // ============================================
+
+    // LEGO catalog - anyone can read, only admin can write
+    match /lego_catalog/{setId} {
+      allow read: if true;
+      allow write: if hasValidApiKey();
+    }
+
+    // Deals - anyone can read, only admin can write
+    match /deals/{dealId} {
+      allow read: if true;
+      allow write: if hasValidApiKey();
+    }
+
+    // Prices - anyone can read, only admin can write
+    match /prices/{priceId} {
+      allow read: if true;
+      allow write: if hasValidApiKey();
+    }
+
+    // Price history - anyone can read, only admin can write
+    match /price_history/{historyId} {
+      allow read: if true;
+      allow write: if hasValidApiKey();
+    }
+
+    // Themes - anyone can read, only admin can write
+    match /themes/{themeId} {
+      allow read: if true;
+      allow write: if hasValidApiKey();
+    }
+
+    // ============================================
+    // PROTECTED COLLECTIONS (Authenticated access)
+    // ============================================
+
+    // Push tokens - users can only manage their own tokens
+    match /push_tokens/{tokenId} {
+      // Allow read/write only if the token belongs to the requesting device
+      // In practice, this is validated server-side
+      allow read: if false; // Only server can read
+      allow create: if true; // Allow device registration
+      allow update: if true; // Allow preference updates
+      allow delete: if true; // Allow unregistration
+    }
+
+    // User preferences - users can only access their own data
+    match /user_preferences/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Watchlists - users can only access their own watchlist
+    match /watchlists/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ============================================
+    // ADMIN-ONLY COLLECTIONS
+    // ============================================
+
+    // App configuration - only admin can access
+    match /app_config/{configId} {
+      allow read, write: if hasValidApiKey();
+    }
+
+    // Analytics - only admin can access
+    match /analytics/{docId} {
+      allow read, write: if hasValidApiKey();
+    }
+
+    // ============================================
+    // DEFAULT DENY
+    // ============================================
+    // Deny all access to any collection not explicitly defined above
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

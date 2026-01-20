@@ -2,7 +2,8 @@
 // BRICK DEAL HUNTER - SETTINGS STORE
 // ============================================
 // Zustand store for app settings and preferences.
-// Includes notification settings and API keys.
+// NOTE: API keys are NOT stored here - they use SecureStore
+// for encrypted storage. See services/secureStorage.ts
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -11,6 +12,7 @@ import { AppSettings, NotificationSettings, SortOption } from '../types';
 
 /**
  * State shape for the settings store
+ * NOTE: API keys are handled separately via SecureStore
  */
 interface SettingsState extends AppSettings {
   // ===== ACTIONS =====
@@ -28,8 +30,6 @@ interface SettingsState extends AppSettings {
   addWatchedSet: (setNumber: string) => void;
   /** Remove a set from watched sets */
   removeWatchedSet: (setNumber: string) => void;
-  /** Set API keys */
-  setApiKeys: (keys: Partial<AppSettings['apiKeys']>) => void;
   /** Mark onboarding as complete */
   completeOnboarding: () => void;
   /** Set default sort option */
@@ -42,6 +42,7 @@ interface SettingsState extends AppSettings {
 
 /**
  * Default settings
+ * NOTE: API keys are NOT included - they use SecureStore
  */
 const defaultSettings: AppSettings = {
   notifications: {
@@ -51,13 +52,6 @@ const defaultSettings: AppSettings = {
     watchedSets: [],
     quietHoursStart: null,
     quietHoursEnd: null,
-  },
-  apiKeys: {
-    rebrickable: null,
-    brickLinkConsumerKey: null,
-    brickLinkConsumerSecret: null,
-    brickLinkTokenValue: null,
-    brickLinkTokenSecret: null,
   },
   hasCompletedOnboarding: false,
   defaultSort: 'discount_high',
@@ -70,6 +64,9 @@ const defaultSettings: AppSettings = {
  * This store is special because it uses `persist` middleware.
  * That means it will automatically save to AsyncStorage
  * and restore when the app reopens.
+ *
+ * SECURITY NOTE: API keys are NOT stored here.
+ * Use the secureStorage service for API keys.
  *
  * Usage:
  * const notifications = useSettingsStore((state) => state.notifications);
@@ -147,11 +144,6 @@ export const useSettingsStore = create<SettingsState>()(
           },
         })),
 
-      setApiKeys: (keys) =>
-        set((state) => ({
-          apiKeys: { ...state.apiKeys, ...keys },
-        })),
-
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
 
       setDefaultSort: (sort) => set({ defaultSort: sort }),
@@ -163,10 +155,9 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'brick-deal-hunter-settings',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist specific fields (not everything)
+      // Only persist specific fields (NOT API keys - those use SecureStore)
       partialize: (state) => ({
         notifications: state.notifications,
-        apiKeys: state.apiKeys,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         defaultSort: state.defaultSort,
         colorScheme: state.colorScheme,
@@ -176,25 +167,8 @@ export const useSettingsStore = create<SettingsState>()(
 );
 
 // ===== SELECTORS =====
-
-/**
- * Check if user has set up Rebrickable API key
- */
-export function useHasRebrickableKey(): boolean {
-  return useSettingsStore((state) => !!state.apiKeys.rebrickable);
-}
-
-/**
- * Check if user has set up BrickLink API keys
- */
-export function useHasBrickLinkKeys(): boolean {
-  return useSettingsStore((state) =>
-    !!state.apiKeys.brickLinkConsumerKey &&
-    !!state.apiKeys.brickLinkConsumerSecret &&
-    !!state.apiKeys.brickLinkTokenValue &&
-    !!state.apiKeys.brickLinkTokenSecret
-  );
-}
+// NOTE: API key checks have been moved to services/secureStorage.ts
+// Use hasRebrickableKey() and hasBrickLinkCredentials() from there
 
 /**
  * Check if a specific set is being watched

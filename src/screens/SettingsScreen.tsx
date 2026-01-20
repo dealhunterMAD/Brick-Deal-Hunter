@@ -239,7 +239,7 @@ export function SettingsScreen() {
           <View style={styles.card}>
             <Pressable
               style={styles.linkRow}
-              onPress={() => openLink('mailto:support@brickdealhunter.com?subject=Feedback')}
+              onPress={() => openLink('mailto:brickdealhunter.app@gmail.com?subject=Brick%20Deal%20Hunter%20Feedback')}
             >
               <Text style={styles.linkRowText}>Send Feedback</Text>
               <ChevronRight size={20} color={colors.textTertiary} />
@@ -249,7 +249,7 @@ export function SettingsScreen() {
 
             <Pressable
               style={styles.linkRow}
-              onPress={() => openLink('https://brickdealhunter.com/privacy')}
+              onPress={() => openLink('https://dealhuntermad.github.io/Brick-Deal-Hunter/privacy.html')}
             >
               <Text style={styles.linkRowText}>Privacy Policy</Text>
               <ChevronRight size={20} color={colors.textTertiary} />
@@ -259,7 +259,7 @@ export function SettingsScreen() {
 
             <Pressable
               style={styles.linkRow}
-              onPress={() => openLink('https://brickdealhunter.com/terms')}
+              onPress={() => openLink('https://dealhuntermad.github.io/Brick-Deal-Hunter/terms.html')}
             >
               <Text style={styles.linkRowText}>Terms of Service</Text>
               <ChevronRight size={20} color={colors.textTertiary} />
