@@ -5,9 +5,9 @@
 // This makes it easy to change colors in one place.
 // LEGO brand colors are the primary theme.
 
-export const COLORS = {
+// =========== LIGHT THEME COLORS ===========
+export const LIGHT_COLORS = {
   // =========== LEGO BRAND COLORS ===========
-  // These are the official LEGO colors
   legoRed: '#D91F2A',      // Primary LEGO red
   legoYellow: '#F7B500',   // Primary LEGO yellow
   legoBlue: '#006DB7',     // LEGO blue
@@ -29,7 +29,6 @@ export const COLORS = {
   textInverse: '#FFFFFF',    // Text on dark backgrounds
 
   // =========== DEAL BADGE COLORS ===========
-  // Different colors based on how good the deal is
   dealMild: '#F59E0B',      // 10-19% off (amber/yellow)
   dealGood: '#22C55E',      // 20-39% off (green)
   dealGreat: '#16A34A',     // 40-59% off (darker green)
@@ -42,76 +41,135 @@ export const COLORS = {
   info: '#3B82F6',     // Information (blue)
 
   // =========== RETAILER BRAND COLORS ===========
-  // These help users quickly identify which store
-  retailerLego: '#D91F2A',      // LEGO red
-  retailerAmazon: '#FF9900',    // Amazon orange
-  retailerWalmart: '#0071CE',   // Walmart blue
-  retailerTarget: '#CC0000',    // Target red
-  retailerBarnesNoble: '#2A5934', // B&N green
-  retailerSamsClub: '#0067A0',  // Sam's blue
-  retailerCostco: '#E31837',    // Costco red
-  retailerWalgreens: '#E31837', // Walgreens red
-  retailerBestBuy: '#0046BE',   // Best Buy blue
-  retailerKohls: '#000000',     // Kohl's black
-  retailerMeijer: '#E31837',    // Meijer red
-  retailerFredMeyer: '#ED1C24', // Fred Meyer red
-  retailerGamestop: '#000000',  // GameStop black
-  retailerEntertainmentEarth: '#0066CC', // Entertainment Earth blue
-  retailerShopDisney: '#006CFF', // Disney blue
-  retailerToysRUs: '#004B93',   // Toys R Us blue
+  retailerLego: '#D91F2A',
+  retailerAmazon: '#FF9900',
+  retailerWalmart: '#0071CE',
+  retailerTarget: '#CC0000',
+  retailerBarnesNoble: '#2A5934',
+  retailerSamsClub: '#0067A0',
+  retailerWalgreens: '#E31837',
+  retailerBestBuy: '#0046BE',
+  retailerKohls: '#000000',
+  retailerGamestop: '#000000',
+  retailerShopDisney: '#006CFF',
+  retailerMacys: '#E21A2C',
 
   // =========== UI ELEMENT COLORS ===========
-  border: '#E5E7EB',         // Border color
-  borderFocused: '#D91F2A',  // Focused input border
-  inputBackground: '#F9FAFB', // Input field background
-  placeholder: '#9CA3AF',     // Placeholder text
-  disabled: '#D1D5DB',        // Disabled elements
-  overlay: 'rgba(0, 0, 0, 0.5)', // Modal overlay
+  border: '#E5E7EB',
+  borderFocused: '#D91F2A',
+  inputBackground: '#F9FAFB',
+  placeholder: '#9CA3AF',
+  disabled: '#D1D5DB',
+  overlay: 'rgba(0, 0, 0, 0.5)',
 
   // =========== SKELETON LOADING COLORS ===========
-  skeletonBase: '#E5E7EB',    // Skeleton background
-  skeletonHighlight: '#F3F4F6', // Skeleton shimmer
+  skeletonBase: '#E5E7EB',
+  skeletonHighlight: '#F3F4F6',
 } as const;
 
+// =========== DARK THEME COLORS ===========
+export const DARK_COLORS = {
+  // =========== LEGO BRAND COLORS ===========
+  legoRed: '#E53E3E',      // Slightly brighter red for dark mode
+  legoYellow: '#F7B500',   // Keep yellow the same
+  legoBlue: '#4299E1',     // Brighter blue
+  legoGreen: '#38A169',    // Brighter green
+  legoOrange: '#FE8A18',   // Keep orange
+  legoBlack: '#1A1A1A',    // Keep black
+  legoWhite: '#FFFFFF',    // Keep white
+
+  // =========== BACKGROUND COLORS ===========
+  background: '#121212',        // Dark background
+  cardBackground: '#1E1E1E',    // Dark card background
+  surfaceLight: '#2D2D2D',      // Lighter dark surface
+  surfaceDark: '#0A0A0A',       // Even darker surface
+
+  // =========== TEXT COLORS ===========
+  textPrimary: '#F5F5F5',    // Light text on dark
+  textSecondary: '#A0AEC0',  // Muted light text
+  textTertiary: '#718096',   // Even more muted
+  textInverse: '#1A1A1A',    // Dark text on light backgrounds
+
+  // =========== DEAL BADGE COLORS ===========
+  dealMild: '#F6AD55',      // Brighter amber for dark mode
+  dealGood: '#48BB78',      // Brighter green
+  dealGreat: '#38A169',     // Darker green
+  dealAmazing: '#FC8181',   // Brighter red
+
+  // =========== STATUS COLORS ===========
+  success: '#48BB78',
+  warning: '#F6AD55',
+  error: '#FC8181',
+  info: '#63B3ED',
+
+  // =========== RETAILER BRAND COLORS ===========
+  retailerLego: '#E53E3E',
+  retailerAmazon: '#FF9900',
+  retailerWalmart: '#4299E1',
+  retailerTarget: '#FC8181',
+  retailerBarnesNoble: '#48BB78',
+  retailerSamsClub: '#4299E1',
+  retailerWalgreens: '#FC8181',
+  retailerBestBuy: '#4299E1',
+  retailerKohls: '#A0AEC0',
+  retailerGamestop: '#A0AEC0',
+  retailerShopDisney: '#4299E1',
+  retailerMacys: '#4299E1',
+
+  // =========== UI ELEMENT COLORS ===========
+  border: '#2D3748',
+  borderFocused: '#E53E3E',
+  inputBackground: '#2D2D2D',
+  placeholder: '#718096',
+  disabled: '#4A5568',
+  overlay: 'rgba(0, 0, 0, 0.7)',
+
+  // =========== SKELETON LOADING COLORS ===========
+  skeletonBase: '#2D2D2D',
+  skeletonHighlight: '#3D3D3D',
+} as const;
+
+// Default export for backwards compatibility
+export const COLORS = LIGHT_COLORS;
+
 // Type for the colors object
-export type ColorName = keyof typeof COLORS;
+export type ColorName = keyof typeof LIGHT_COLORS;
+export type ThemeColors = typeof LIGHT_COLORS;
 
 /**
  * Get the badge color based on discount percentage
  * @param percentOff - The discount percentage (0-100)
+ * @param colors - The current theme colors
  * @returns The hex color code
  */
-export function getDiscountBadgeColor(percentOff: number): string {
-  if (percentOff >= 60) return COLORS.dealAmazing;
-  if (percentOff >= 40) return COLORS.dealGreat;
-  if (percentOff >= 20) return COLORS.dealGood;
-  if (percentOff >= 10) return COLORS.dealMild;
-  return COLORS.textSecondary;
+export function getDiscountBadgeColor(percentOff: number, colors: ThemeColors = COLORS): string {
+  if (percentOff >= 60) return colors.dealAmazing;
+  if (percentOff >= 40) return colors.dealGreat;
+  if (percentOff >= 20) return colors.dealGood;
+  if (percentOff >= 10) return colors.dealMild;
+  return colors.textSecondary;
 }
 
 /**
  * Get retailer brand color
  * @param retailerId - The retailer identifier
+ * @param colors - The current theme colors
  * @returns The hex color code
  */
-export function getRetailerColor(retailerId: string): string {
+export function getRetailerColor(retailerId: string, colors: ThemeColors = COLORS): string {
   const colorMap: Record<string, string> = {
-    lego: COLORS.retailerLego,
-    amazon: COLORS.retailerAmazon,
-    walmart: COLORS.retailerWalmart,
-    target: COLORS.retailerTarget,
-    barnes_noble: COLORS.retailerBarnesNoble,
-    sams_club: COLORS.retailerSamsClub,
-    costco: COLORS.retailerCostco,
-    walgreens: COLORS.retailerWalgreens,
-    best_buy: COLORS.retailerBestBuy,
-    kohls: COLORS.retailerKohls,
-    meijer: COLORS.retailerMeijer,
-    fred_meyer: COLORS.retailerFredMeyer,
-    gamestop: COLORS.retailerGamestop,
-    entertainment_earth: COLORS.retailerEntertainmentEarth,
-    shop_disney: COLORS.retailerShopDisney,
-    toys_r_us: COLORS.retailerToysRUs,
+    lego: colors.retailerLego,
+    amazon: colors.retailerAmazon,
+    walmart: colors.retailerWalmart,
+    target: colors.retailerTarget,
+    barnes_noble: colors.retailerBarnesNoble,
+    sams_club: colors.retailerSamsClub,
+    walgreens: colors.retailerWalgreens,
+    best_buy: colors.retailerBestBuy,
+    kohls: colors.retailerKohls,
+    gamestop: colors.retailerGamestop,
+    shop_disney: colors.retailerShopDisney,
+    macys: colors.retailerMacys,
   };
-  return colorMap[retailerId] || COLORS.textSecondary;
+  return colorMap[retailerId] || colors.textSecondary;
 }

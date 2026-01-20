@@ -112,9 +112,12 @@ export function formatSetNumber(setNumber: string): string {
 /**
  * Format piece count with label
  * @param numParts - Number of pieces
- * @returns Formatted string like "7,541 pieces"
+ * @returns Formatted string like "7,541 pieces" or empty string if no data
  */
-export function formatPieceCount(numParts: number): string {
+export function formatPieceCount(numParts: number | undefined | null): string {
+  if (numParts === undefined || numParts === null || isNaN(numParts)) {
+    return '';
+  }
   return `${formatNumber(numParts)} piece${numParts === 1 ? '' : 's'}`;
 }
 

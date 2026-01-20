@@ -28,13 +28,14 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 
-import { COLORS } from '../constants/colors';
+import { COLORS, ThemeColors } from '../constants/colors';
 import { SPACING, SHADOWS } from '../constants/theme';
 import { Deal, RootStackParamList } from '../types';
 import { useDealsStore } from '../store/useDealsStore';
 import { useFiltersStore, useFilterState, useActiveFilterCount } from '../store/useFiltersStore';
 import { filterDeals } from '../utils/priceCalculations';
 import { formatRelativeTime, getTimeBasedGreeting } from '../utils/formatters';
+import { useThemeColors } from '../hooks/useTheme';
 
 import { DealCard } from '../components/DealCard';
 import { DealListSkeleton } from '../components/LoadingSkeleton';
@@ -54,6 +55,10 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
  */
 export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
+
+  // Theme colors
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
 
   // Store state
   const {
@@ -208,7 +213,7 @@ export function HomeScreen() {
       {/* Stats row */}
       <View style={styles.statsRow}>
         <View style={styles.stat}>
-          <TrendingDown size={20} color={COLORS.dealGood} />
+          <TrendingDown size={20} color={colors.dealGood} />
           <Text style={styles.statValue}>{deals.length}</Text>
           <Text style={styles.statLabel}>Deals</Text>
         </View>
@@ -225,7 +230,7 @@ export function HomeScreen() {
         >
           <SlidersHorizontal
             size={18}
-            color={activeFilterCount > 0 ? '#FFFFFF' : COLORS.textPrimary}
+            color={activeFilterCount > 0 ? '#FFFFFF' : colors.textPrimary}
           />
           <Text
             style={[
@@ -256,7 +261,7 @@ export function HomeScreen() {
     if (dealsError) {
       return (
         <View style={styles.emptyState}>
-          <AlertCircle size={48} color={COLORS.error} />
+          <AlertCircle size={48} color={colors.error} />
           <Text style={styles.emptyTitle}>Oops!</Text>
           <Text style={styles.emptyText}>{dealsError}</Text>
           <Pressable style={styles.retryButton} onPress={loadDeals}>
@@ -270,7 +275,7 @@ export function HomeScreen() {
     if (filteredDeals.length === 0 && deals.length > 0) {
       return (
         <View style={styles.emptyState}>
-          <SlidersHorizontal size={48} color={COLORS.textTertiary} />
+          <SlidersHorizontal size={48} color={colors.textTertiary} />
           <Text style={styles.emptyTitle}>No matches</Text>
           <Text style={styles.emptyText}>
             Try adjusting your filters to see more deals.
@@ -287,7 +292,7 @@ export function HomeScreen() {
 
     return (
       <View style={styles.emptyState}>
-        <TrendingDown size={48} color={COLORS.textTertiary} />
+        <TrendingDown size={48} color={colors.textTertiary} />
         <Text style={styles.emptyTitle}>No deals yet</Text>
         <Text style={styles.emptyText}>
           Pull down to refresh and check for new deals.
@@ -314,8 +319,8 @@ export function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={COLORS.legoRed}
-            colors={[COLORS.legoRed]}
+            tintColor={colors.legoRed}
+            colors={[colors.legoRed]}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -330,20 +335,22 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   logoHeader: {
-    backgroundColor: COLORS.legoRed,
+    backgroundColor: colors.legoRed,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
+    alignItems: 'center',
   },
   logoText: {
     fontSize: 24,
     fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   header: {
     padding: SPACING.lg,
@@ -357,16 +364,16 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   lastUpdated: {
     fontSize: 12,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
   },
   statsRow: {
     flexDirection: 'row',
@@ -375,7 +382,7 @@ const styles = StyleSheet.create({
   stat: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.cardBackground,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: 20,
@@ -385,11 +392,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   statLabel: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   filterBar: {
     flexDirection: 'row',
@@ -399,7 +406,7 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.cardBackground,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: 20,
@@ -407,19 +414,19 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   filterButtonActive: {
-    backgroundColor: COLORS.legoRed,
+    backgroundColor: colors.legoRed,
   },
   filterButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   filterButtonTextActive: {
     color: '#FFFFFF',
   },
   resultsText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   listContent: {
     paddingBottom: SPACING.xxxl,
@@ -432,12 +439,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     marginTop: SPACING.lg,
   },
   emptyText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: SPACING.sm,
     marginBottom: SPACING.lg,
@@ -445,7 +452,7 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.legoRed,
+    backgroundColor: colors.legoRed,
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
     borderRadius: 20,

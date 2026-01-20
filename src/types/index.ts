@@ -85,16 +85,12 @@ export type RetailerId =
   | 'target'
   | 'barnes_noble'
   | 'sams_club'
-  | 'costco'
   | 'walgreens'
   | 'best_buy'
   | 'kohls'
-  | 'meijer'
-  | 'fred_meyer'
   | 'gamestop'
-  | 'entertainment_earth'
   | 'shop_disney'
-  | 'toys_r_us';
+  | 'macys';
 
 /**
  * Information about a retailer

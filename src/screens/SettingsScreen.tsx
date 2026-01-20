@@ -15,23 +15,34 @@ import {
   Pressable,
   Switch,
   Linking,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Slider from '@react-native-community/slider';
 import {
   Bell,
   Palette,
   HelpCircle,
   ChevronRight,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react-native';
 
-import { COLORS } from '../constants/colors';
+import { COLORS, ThemeColors } from '../constants/colors';
 import { SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useThemeColors } from '../hooks/useTheme';
+import { useNotifications, useNotificationStatus } from '../hooks/useNotifications';
 
 /**
  * SettingsScreen - App configuration
  */
 export function SettingsScreen() {
+  // Theme colors
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
+
   // Settings store
   const {
     notifications,
@@ -41,11 +52,45 @@ export function SettingsScreen() {
     setColorScheme,
   } = useSettingsStore();
 
+  // Push notification hooks
+  const {
+    isEnabled: pushEnabled,
+    isLoading: pushLoading,
+    error: pushError,
+    requestPermissions,
+  } = useNotifications();
+  const { isPhysicalDevice } = useNotificationStatus();
+
   /**
    * Open external link
    */
   const openLink = (url: string) => {
     Linking.openURL(url);
+  };
+
+  /**
+   * Handle enabling notifications - request permissions first
+   */
+  const handleEnableNotifications = async () => {
+    if (!pushEnabled) {
+      // Need to request permissions first
+      const granted = await requestPermissions();
+      if (granted) {
+        toggleNotifications();
+      } else {
+        Alert.alert(
+          'Notifications Disabled',
+          'Please enable notifications in your device settings to receive deal alerts.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
+    } else {
+      // Already have permissions, just toggle
+      toggleNotifications();
+    }
   };
 
   return (
@@ -63,59 +108,88 @@ export function SettingsScreen() {
         {/* Notifications Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Bell size={20} color={COLORS.legoRed} />
+            <Bell size={20} color={colors.legoRed} />
             <Text style={styles.sectionTitle}>Notifications</Text>
           </View>
 
           <View style={styles.card}>
+            {/* Push notification status */}
+            <View style={styles.statusRow}>
+              {pushLoading ? (
+                <ActivityIndicator size="small" color={colors.legoRed} />
+              ) : pushEnabled ? (
+                <>
+                  <CheckCircle size={18} color={colors.dealGood} />
+                  <Text style={[styles.statusText, { color: colors.dealGood }]}>
+                    Push notifications enabled
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <AlertCircle size={18} color={colors.warning} />
+                  <Text style={[styles.statusText, { color: colors.warning }]}>
+                    {!isPhysicalDevice
+                      ? 'Push notifications require a physical device'
+                      : 'Push notifications not enabled'}
+                  </Text>
+                </>
+              )}
+            </View>
+
+            {/* Show error if any */}
+            {pushError && (
+              <Text style={styles.errorText}>{pushError}</Text>
+            )}
+
+            <View style={styles.divider} />
+
             {/* Enable notifications toggle */}
             <View style={styles.settingRow}>
-              <View>
+              <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Deal Alerts</Text>
                 <Text style={styles.settingDescription}>
                   Get notified about new deals
                 </Text>
               </View>
-              <Switch
-                value={notifications.enabled}
-                onValueChange={toggleNotifications}
-                trackColor={{ false: COLORS.border, true: COLORS.legoRed }}
-                thumbColor="#FFFFFF"
-              />
+              {pushLoading ? (
+                <ActivityIndicator size="small" color={colors.legoRed} />
+              ) : (
+                <Switch
+                  value={notifications.enabled && pushEnabled}
+                  onValueChange={handleEnableNotifications}
+                  trackColor={{ false: colors.border, true: colors.legoRed }}
+                  thumbColor="#FFFFFF"
+                  disabled={!isPhysicalDevice}
+                />
+              )}
             </View>
 
             {/* Threshold slider */}
             {notifications.enabled && (
               <View style={styles.thresholdSection}>
-                <Text style={styles.settingLabel}>
-                  Minimum Discount: {notifications.minDiscountThreshold}%
-                </Text>
+                <View style={styles.thresholdHeader}>
+                  <Text style={styles.settingLabel}>Minimum Discount</Text>
+                  <Text style={styles.thresholdValue}>
+                    {notifications.minDiscountThreshold}%
+                  </Text>
+                </View>
                 <Text style={styles.settingDescription}>
                   Only notify for deals {notifications.minDiscountThreshold}% off or more
                 </Text>
-                {/* Note: Slider would go here - using buttons for simplicity */}
-                <View style={styles.thresholdButtons}>
-                  {[10, 20, 30, 40, 50].map((threshold) => (
-                    <Pressable
-                      key={threshold}
-                      style={[
-                        styles.thresholdButton,
-                        notifications.minDiscountThreshold === threshold &&
-                          styles.thresholdButtonActive,
-                      ]}
-                      onPress={() => setNotificationThreshold(threshold)}
-                    >
-                      <Text
-                        style={[
-                          styles.thresholdButtonText,
-                          notifications.minDiscountThreshold === threshold &&
-                            styles.thresholdButtonTextActive,
-                        ]}
-                      >
-                        {threshold}%
-                      </Text>
-                    </Pressable>
-                  ))}
+                <View style={styles.sliderContainer}>
+                  <Text style={styles.sliderLabel}>10%</Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={10}
+                    maximumValue={80}
+                    step={5}
+                    value={notifications.minDiscountThreshold}
+                    onValueChange={(value) => setNotificationThreshold(value)}
+                    minimumTrackTintColor={colors.legoRed}
+                    maximumTrackTintColor={colors.border}
+                    thumbTintColor={colors.legoRed}
+                  />
+                  <Text style={styles.sliderLabel}>80%</Text>
                 </View>
               </View>
             )}
@@ -125,7 +199,7 @@ export function SettingsScreen() {
         {/* Appearance Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Palette size={20} color={COLORS.legoRed} />
+            <Palette size={20} color={colors.legoRed} />
             <Text style={styles.sectionTitle}>Appearance</Text>
           </View>
 
@@ -158,27 +232,37 @@ export function SettingsScreen() {
         {/* Help & About Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <HelpCircle size={20} color={COLORS.legoRed} />
+            <HelpCircle size={20} color={colors.legoRed} />
             <Text style={styles.sectionTitle}>Help & About</Text>
           </View>
 
           <View style={styles.card}>
             <Pressable
               style={styles.linkRow}
-              onPress={() => openLink('https://rebrickable.com/api/')}
+              onPress={() => openLink('mailto:support@brickdealhunter.com?subject=Feedback')}
             >
-              <Text style={styles.linkRowText}>Rebrickable API Docs</Text>
-              <ChevronRight size={20} color={COLORS.textTertiary} />
+              <Text style={styles.linkRowText}>Send Feedback</Text>
+              <ChevronRight size={20} color={colors.textTertiary} />
             </Pressable>
 
             <View style={styles.divider} />
 
             <Pressable
               style={styles.linkRow}
-              onPress={() => openLink('https://www.bricklink.com/v3/api.page')}
+              onPress={() => openLink('https://brickdealhunter.com/privacy')}
             >
-              <Text style={styles.linkRowText}>BrickLink API Docs</Text>
-              <ChevronRight size={20} color={COLORS.textTertiary} />
+              <Text style={styles.linkRowText}>Privacy Policy</Text>
+              <ChevronRight size={20} color={colors.textTertiary} />
+            </Pressable>
+
+            <View style={styles.divider} />
+
+            <Pressable
+              style={styles.linkRow}
+              onPress={() => openLink('https://brickdealhunter.com/terms')}
+            >
+              <Text style={styles.linkRowText}>Terms of Service</Text>
+              <ChevronRight size={20} color={colors.textTertiary} />
             </Pressable>
 
             <View style={styles.divider} />
@@ -202,13 +286,13 @@ export function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: COLORS.legoRed,
+    backgroundColor: colors.legoRed,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
   },
@@ -236,57 +320,78 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   card: {
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.cardBackground,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     ...SHADOWS.sm,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: SPACING.xs,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  settingInfo: {
+    flex: 1,
+  },
   settingLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   settingDescription: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   thresholdSection: {
     marginTop: SPACING.lg,
     paddingTop: SPACING.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: colors.border,
   },
-  thresholdButtons: {
+  thresholdHeader: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  thresholdButton: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: BORDER_RADIUS.md,
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  thresholdButtonActive: {
-    backgroundColor: COLORS.legoRed,
+  thresholdValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.legoRed,
   },
-  thresholdButtonText: {
-    fontSize: 14,
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    gap: SPACING.sm,
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  sliderLabel: {
+    fontSize: 12,
     fontWeight: '500',
-    color: COLORS.textPrimary,
-  },
-  thresholdButtonTextActive: {
-    color: '#FFFFFF',
+    color: colors.textSecondary,
+    minWidth: 30,
   },
   themeButtons: {
     flexDirection: 'row',
@@ -296,17 +401,17 @@ const styles = StyleSheet.create({
   themeButton: {
     flex: 1,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: colors.surfaceLight,
     borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
   },
   themeButtonActive: {
-    backgroundColor: COLORS.legoRed,
+    backgroundColor: colors.legoRed,
   },
   themeButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   themeButtonTextActive: {
     color: '#FFFFFF',
@@ -319,11 +424,11 @@ const styles = StyleSheet.create({
   },
   linkRowText: {
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: colors.border,
     marginVertical: SPACING.sm,
   },
   aboutRow: {
@@ -333,11 +438,11 @@ const styles = StyleSheet.create({
   },
   aboutLabel: {
     fontSize: 15,
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
   },
   aboutValue: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   footer: {
     alignItems: 'center',
@@ -347,11 +452,11 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
   },
   footerSubtext: {
     fontSize: 12,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     marginTop: 4,
   },
 });

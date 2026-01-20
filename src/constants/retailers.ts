@@ -53,13 +53,6 @@ export const RETAILERS: Record<RetailerId, RetailerInfo> = {
     logo: 'sams-club-logo',
     baseUrl: 'https://www.samsclub.com',
   },
-  costco: {
-    id: 'costco',
-    name: 'Costco',
-    color: COLORS.retailerCostco,
-    logo: 'costco-logo',
-    baseUrl: 'https://www.costco.com',
-  },
   walgreens: {
     id: 'walgreens',
     name: 'Walgreens',
@@ -81,33 +74,12 @@ export const RETAILERS: Record<RetailerId, RetailerInfo> = {
     logo: 'kohls-logo',
     baseUrl: 'https://www.kohls.com',
   },
-  meijer: {
-    id: 'meijer',
-    name: 'Meijer',
-    color: COLORS.retailerMeijer,
-    logo: 'meijer-logo',
-    baseUrl: 'https://www.meijer.com',
-  },
-  fred_meyer: {
-    id: 'fred_meyer',
-    name: 'Fred Meyer',
-    color: COLORS.retailerFredMeyer,
-    logo: 'fred-meyer-logo',
-    baseUrl: 'https://www.fredmeyer.com',
-  },
   gamestop: {
     id: 'gamestop',
     name: 'GameStop',
     color: COLORS.retailerGamestop,
     logo: 'gamestop-logo',
     baseUrl: 'https://www.gamestop.com',
-  },
-  entertainment_earth: {
-    id: 'entertainment_earth',
-    name: 'Entertainment Earth',
-    color: COLORS.retailerEntertainmentEarth,
-    logo: 'entertainment-earth-logo',
-    baseUrl: 'https://www.entertainmentearth.com',
   },
   shop_disney: {
     id: 'shop_disney',
@@ -116,12 +88,12 @@ export const RETAILERS: Record<RetailerId, RetailerInfo> = {
     logo: 'shop-disney-logo',
     baseUrl: 'https://www.shopdisney.com',
   },
-  toys_r_us: {
-    id: 'toys_r_us',
-    name: 'Toys "R" Us',
-    color: COLORS.retailerToysRUs,
-    logo: 'toys-r-us-logo',
-    baseUrl: 'https://www.toysrus.com',
+  macys: {
+    id: 'macys',
+    name: "Macy's",
+    color: COLORS.retailerMacys,
+    logo: 'macys-logo',
+    baseUrl: 'https://www.macys.com',
   },
 };
 
@@ -169,26 +141,18 @@ export function buildSearchUrl(retailerId: RetailerId, setNumber: string): strin
       return `https://www.barnesandnoble.com/s/LEGO+${cleanSetNum}`;
     case 'sams_club':
       return `https://www.samsclub.com/s/LEGO+${cleanSetNum}`;
-    case 'costco':
-      return `https://www.costco.com/CatalogSearch?dept=All&keyword=LEGO+${cleanSetNum}`;
     case 'walgreens':
       return `https://www.walgreens.com/search/results.jsp?Ntt=LEGO+${cleanSetNum}`;
     case 'best_buy':
       return `https://www.bestbuy.com/site/searchpage.jsp?st=LEGO+${cleanSetNum}`;
     case 'kohls':
       return `https://www.kohls.com/search.jsp?search=LEGO+${cleanSetNum}`;
-    case 'meijer':
-      return `https://www.meijer.com/search.html?searchTerm=LEGO+${cleanSetNum}`;
-    case 'fred_meyer':
-      return `https://www.fredmeyer.com/search?query=LEGO+${cleanSetNum}`;
     case 'gamestop':
       return `https://www.gamestop.com/search/?q=LEGO+${cleanSetNum}`;
-    case 'entertainment_earth':
-      return `https://www.entertainmentearth.com/s/?query1=LEGO+${cleanSetNum}`;
     case 'shop_disney':
       return `https://www.shopdisney.com/search?q=LEGO+${cleanSetNum}`;
-    case 'toys_r_us':
-      return `https://www.toysrus.com/search?q=LEGO+${cleanSetNum}`;
+    case 'macys':
+      return `https://www.macys.com/shop/featured/lego+${cleanSetNum}`;
     default:
       return '';
   }

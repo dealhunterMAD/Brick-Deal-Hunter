@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { ExternalLink } from 'lucide-react-native';
 import { Deal } from '../types';
-import { COLORS } from '../constants/colors';
+import { COLORS, ThemeColors } from '../constants/colors';
 import { SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
 import {
   formatCurrency,
@@ -26,6 +26,7 @@ import {
 import { SetImage } from './SetImage';
 import { DiscountBadge } from './DiscountBadge';
 import { RetailerChip } from './RetailerChip';
+import { useThemeColors } from '../hooks/useTheme';
 
 /**
  * Props for the DealCard component
@@ -53,6 +54,9 @@ export function DealCard({
   onPress,
   showBuyButton = true,
 }: DealCardProps) {
+  const colors = useThemeColors();
+  const styles = createStyles(colors);
+
   const { set, price, percentOff, savings } = deal;
 
   // Open the retailer's product page
@@ -99,7 +103,7 @@ export function DealCard({
 
           {/* Set number and piece count */}
           <Text style={styles.meta}>
-            #{formatSetNumber(set.setNumber)} • {formatPieceCount(set.numParts)}
+            #{formatSetNumber(set.setNumber)}{formatPieceCount(set.numParts) ? ` • ${formatPieceCount(set.numParts)}` : ''}
           </Text>
 
           {/* Price section */}
@@ -161,9 +165,9 @@ export function DealCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.cardBackground,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     marginHorizontal: SPACING.lg,
@@ -190,13 +194,13 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 4,
     paddingRight: 60, // Make room for badge
   },
   meta: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   priceRow: {
@@ -208,17 +212,17 @@ const styles = StyleSheet.create({
   currentPrice: {
     fontSize: 22,
     fontWeight: '700',
-    color: COLORS.legoRed,
+    color: colors.legoRed,
   },
   originalPrice: {
     fontSize: 14,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     textDecorationLine: 'line-through',
   },
   savings: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.dealGood,
+    color: colors.dealGood,
     marginBottom: 8,
   },
   bottomRow: {
@@ -230,7 +234,7 @@ const styles = StyleSheet.create({
   buyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.legoRed,
+    backgroundColor: colors.legoRed,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -246,7 +250,7 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 10,
-    color: COLORS.textTertiary,
+    color: colors.textTertiary,
     marginTop: 8,
   },
   outOfStock: {
@@ -255,7 +259,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: colors.overlay,
     borderRadius: BORDER_RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -263,8 +267,8 @@ const styles = StyleSheet.create({
   outOfStockText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textSecondary,
-    backgroundColor: COLORS.surfaceLight,
+    color: colors.textPrimary,
+    backgroundColor: colors.surfaceLight,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
